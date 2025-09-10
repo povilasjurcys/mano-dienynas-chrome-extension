@@ -27,6 +27,17 @@
         font-size: 14px;
         font-weight: bold;
         margin-left: 30px;
+      }
+
+      .mde-enhanced-btn:disabled {
+        background: #757575;
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
+
+      .mde-enhanced-btn.processing {
+        background: #ff9800;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -39,13 +50,18 @@
 
     btn.onclick = function() {
       if (confirm('This will navigate through multiple pages to collect homework data. Continue?')) {
-        collectAllHomeworkData();
+        collectAllHomeworkData(btn);
       }
     };
     document.querySelector('#main .title')?.appendChild(btn);
   }
 
-  function collectAllHomeworkData() {
+  function collectAllHomeworkData(buttonElement) {
+    // Set button to processing state
+    buttonElement.disabled = true;
+    buttonElement.classList.add('processing');
+    buttonElement.textContent = 'Processing...';
+
     function collectChangeChildUrls() {
       let changeChildUrls = [];
       document.querySelectorAll('.child-info-wrapper-in-list').forEach(childEl => {
@@ -59,10 +75,14 @@
       const pendingUrls = JSON.parse(localStorage.getItem('mde:pendingChildUrls') || '[]');
 
       // Use async/await to ensure sequential execution
-      return pendingUrls.reduce((promise, url) => {
+      return pendingUrls.reduce((promise, url, index) => {
         return promise.then(async () => {
           const childId = url.split('/').pop();
           console.log(`Processing child ${childId}...`);
+
+          // Update button text with progress
+          buttonElement.textContent = `Processing child ${index + 1}/${pendingUrls.length}...`;
+
           try {
             const pageHtml = await gatherTargetPage(url);
             localStorage.setItem('mde:pageHtml:' + childId, pageHtml);
@@ -81,8 +101,8 @@
         .then(() => {
             const formData = new FormData();
             formData.append('orderBy', '2');
-            formData.append('datepickerFrom', '2025-09-10');
-            formData.append('datepickerTo', '2025-09-17');
+            formData.append('datepickerFrom', new Date().toISOString().split('T')[0]);
+            formData.append('datepickerTo', new Date().toISOString().split('T')[0]);
             formData.append('lessonSelect', '0');
 
             return fetch(
@@ -127,6 +147,20 @@
     gatherPagesData().then(() => {
       displayPagesData();
       markNonPrintableElements();
+
+      // Reset button state
+      buttonElement.disabled = false;
+      buttonElement.classList.remove('processing');
+      buttonElement.textContent = 'All kids homework';
+    }).catch((error) => {
+      console.error('Error collecting homework data:', error);
+
+      // Reset button state on error
+      buttonElement.disabled = false;
+      buttonElement.classList.remove('processing');
+      buttonElement.textContent = 'All kids homework';
+
+      alert('An error occurred while collecting homework data. Please try again.');
     });
   }
 
