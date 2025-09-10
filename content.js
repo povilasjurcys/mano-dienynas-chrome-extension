@@ -170,6 +170,7 @@
       'header',
       '.side-container',
       '#banner_in_system',
+      '.new_class',
       '.classhomework_table th:nth-child(3)',
       '.classhomework_table td:nth-child(3)',
       '.classhomework_table th:nth-child(5)',
