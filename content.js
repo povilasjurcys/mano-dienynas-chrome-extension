@@ -15,32 +15,119 @@
           padding: 0 !important;
         }
       }
+
+      .mde-enhanced-btn {
+        padding: 12px 24px;
+        background: #1976d2;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 30px;
     `;
     document.head.appendChild(style);
   }
 
-  function addPrintButton() {
-    // Avoid duplicate button
-    if (document.getElementById('md-print-btn')) return;
-
+  function addAllHomeworksButton() {
     const btn = document.createElement('button');
-    btn.id = 'md-print-btn';
-    btn.className = 'md-print-btn non-printable';
-    btn.textContent = 'Print';
-    btn.style.zIndex = '9999';
-    btn.style.padding = '10px 20px';
-    btn.style.background = '#1976d2';
-    btn.style.color = '#fff';
-    btn.style.border = 'none';
-    btn.style.borderRadius = '5px';
-    btn.style.cursor = 'pointer';
-    btn.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+    btn.id = 'md-enhanced-btn';
+    btn.classList.add('non-printable', 'mde-enhanced-btn');
+    btn.textContent = 'All kids homework';
 
     btn.onclick = function() {
-      window.print();
+      if (confirm('This will navigate through multiple pages to collect homework data. Continue?')) {
+        collectAllHomeworkData();
+      }
     };
+    document.querySelector('#main .title')?.appendChild(btn);
+  }
 
-    document.querySelector('.toolhead').appendChild(btn);
+  function collectAllHomeworkData() {
+    function collectChangeChildUrls() {
+      let changeChildUrls = [];
+      document.querySelectorAll('.child-info-wrapper-in-list').forEach(childEl => {
+        const changeChildUrl = childEl.attributes.onclick.textContent.match(/location\.href\s*=\s'([^']+)'/)[1];
+        changeChildUrls.push(changeChildUrl);
+      });
+      localStorage.setItem('mde:pendingChildUrls', JSON.stringify(changeChildUrls));
+    }
+
+    function gatherPagesData() {
+      const pendingUrls = JSON.parse(localStorage.getItem('mde:pendingChildUrls') || '[]');
+
+      // Use async/await to ensure sequential execution
+      return pendingUrls.reduce((promise, url) => {
+        return promise.then(async () => {
+          const childId = url.split('/').pop();
+          console.log(`Processing child ${childId}...`);
+          try {
+            const pageHtml = await gatherTargetPage(url);
+            localStorage.setItem('mde:pageHtml:' + childId, pageHtml);
+            console.log(`Completed child ${childId}`);
+            // Add a small delay between requests to avoid overwhelming the server
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (error) {
+            console.error(`Error processing child ${childId}:`, error);
+          }
+        });
+      }, Promise.resolve());
+    }
+
+    function gatherTargetPage(url) {
+      return fetch(url)
+        .then(() => {
+            const formData = new FormData();
+            formData.append('orderBy', '2');
+            formData.append('datepickerFrom', '2025-09-10');
+            formData.append('datepickerTo', '2025-09-17');
+            formData.append('lessonSelect', '0');
+
+            return fetch(
+              "/1/lt/page/classhomework/home_work/0",
+              {
+                "body": formData,
+                "method": "POST",
+                "mode": "cors"
+              }
+            )
+        })
+        .then((page) => page.text())
+        .then((html) => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const content = doc.querySelector('#main_middle')?.innerHTML || 'No Content';
+          return content;
+        });
+    }
+
+    function resetCache() {
+      // remove everything starting with "mde:"
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('mde:')) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+
+    function displayPagesData() {
+      let mainHtml = '';
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('mde:pageHtml:')) {
+          mainHtml += localStorage.getItem(key);
+        }
+      });
+      document.querySelector('#main_middle').innerHTML = mainHtml;
+    }
+
+    resetCache();
+    collectChangeChildUrls();
+    gatherPagesData().then(() => {
+      displayPagesData();
+      markNonPrintableElements();
+    });
   }
 
   function markNonPrintableElements() {
@@ -48,7 +135,15 @@
     const selectors = [
       'header',
       '.side-container',
-      '#banner_in_system'
+      '#banner_in_system',
+      '.classhomework_table th:nth-child(3)',
+      '.classhomework_table td:nth-child(3)',
+      '.classhomework_table th:nth-child(5)',
+      '.classhomework_table td:nth-child(5)',
+      '.classhomework_table th:nth-child(6)',
+      '.classhomework_table td:nth-child(6)',
+      '.classhomework_table td:nth-child(7)',
+      '.classhomework_table th:nth-child(7)',
     ];
 
     selectors.forEach(selector => {
@@ -61,7 +156,7 @@
   function init() {
     injectCss();
     markNonPrintableElements();
-    // addPrintButton();
+    addAllHomeworksButton();
   }
 
   init();

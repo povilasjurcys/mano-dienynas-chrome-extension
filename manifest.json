@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Mano Dienynas Enhance",
-  "version": "1.0",
-  "description": "Adds a print button to the homework page on manodienynas.lt.",
-  "permissions": ["scripting"],
+  "version": "2.0",
+  "description": "Collects homework data from all children and creates a combined printable view.",
+  "permissions": ["scripting", "storage"],
   "host_permissions": [
     "https://www.manodienynas.lt/*"
   ],
@@ -18,7 +18,8 @@
       "matches": [
         "https://www.manodienynas.lt/*"
       ],
-      "js": ["content.js"]
+      "js": ["content.js"],
+      "run_at": "document_end"
     }
   ]
 }
